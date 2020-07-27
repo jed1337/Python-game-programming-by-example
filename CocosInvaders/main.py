@@ -1,6 +1,7 @@
 import cocos
 import cocos.layer
 import cocos.collision_model as cm
+import random
 import cocos.euclid as eu
 
 from collections import defaultdict
@@ -38,6 +39,11 @@ class PlayerCannon(Actor):
 
     def update(self, elapsed):
         pressed = PlayerCannon.KEYS_PRESSED
+        space_pressed = pressed[key.SPACE] == 1
+
+        if PlayerShoot.INSTANCE is None and space_pressed:
+            self.parent.add(PlayerShoot(self.x, self.y + 50))
+
         movement = pressed[key.RIGHT] - pressed[key.LEFT]
         w = self.width / 2
 
@@ -87,6 +93,7 @@ class GameLayer(cocos.layer.Layer):
         self.score += score
 
     def create_alien_group(self, x, y):
+        """(0,0) = bottom left"""
         self.alien_group = AlienGroup(x, y)
         for alien in self.alien_group:
             self.add(alien)
@@ -100,8 +107,24 @@ class GameLayer(cocos.layer.Layer):
             if not self.collman.knows(node):
                 self.remove(node)
 
+        # Have the PlayerShoot collide with the aliens
+        # We don't do anything about the return value since
+        # PlayerShoot handles killing itself and the alien it hit
+        self.collide(PlayerShoot.INSTANCE)
+
+        # If the player collides with Shoot or an Alien
+        if self.collide(self.player):
+            self.respawn_player()
+
+        for column in self.alien_group.columns:
+            shoot = column.shoot()
+            if shoot is not None:
+                self.add(shoot)
+
         for _, node in self.children:
             node.update(dt)
+
+        self.alien_group.update(dt)
 
     def collide(self, node: Actor):
         other: Actor
@@ -112,6 +135,14 @@ class GameLayer(cocos.layer.Layer):
                 node.collide(other)
                 return True
         return False
+
+    def respawn_player(self):
+        """Unschedule update() when there are no more lives left to stop the main loop"""
+        self.lives-=1
+        if self.lives<0:
+            self.unschedule(self.update)
+        else:
+            self.create_player()
 
 
 class Alien(Actor):
@@ -147,11 +178,6 @@ class AlienColumn(object):
         self.aliens = [Alien.from_type(x, y + i * 60, alien, self)
                        for i, alien in alien_types]
 
-    def remove(self, alien):
-        self.aliens.remove(alien)
-
-    def shoot(self):
-        pass
 
     def should_turn(self, direction):
         if len(self.aliens) == 0:
@@ -163,12 +189,25 @@ class AlienColumn(object):
         left = -1
         return (x >= parent_width - 50 and direction == right) or (x <= 50 and direction == left)
 
+    def remove(self, alien):
+        self.aliens.remove(alien)
+
+    def shoot(self):
+        # We set a low probability of shooting since random() is called multiple times per second
+        if random.random() < 0.001 and len(self.aliens) > 0:
+            bottom_most_alien_position = self.aliens[0].position
+            return Shoot(bottom_most_alien_position[0], bottom_most_alien_position[1] - 50)
+        return None
+
 
 class AlienGroup(object):
     def __init__(self, x, y):
         self.columns = [AlienColumn(x + i * 60, y)
                         for i in range(10)]
         self.speed = eu.Vector2(10, 0)
+
+        # 1 = right
+        # -1 = left
         self.direction = 1
         self.elapsed = 0.0
         self.period = 1.0
@@ -190,7 +229,36 @@ class AlienGroup(object):
                 alien.move(offset)
 
     def side_reached(self):
-        return any(map(lambda c: c.should_turn(self.direction), self.columns))
+        return any(map(lambda column: column.should_turn(self.direction), self.columns))
+
+
+class Shoot(Actor):
+    def __init__(self, x, y, image="img/shoot.png"):
+        super(Shoot, self).__init__(image, x, y)
+        self.speed = eu.Vector2(0, -400)
+
+    def update(self, elapsed):
+        self.move(self.speed * elapsed)
+
+
+class PlayerShoot(Shoot):
+    INSTANCE = None
+    """The player can't shoot until the shoot hits an enemy or goes off-screen"""
+
+    def __init__(self, x, y):
+        super(PlayerShoot, self).__init__(x, y, image="img/laser.png")
+        self.speed *= -1
+        PlayerShoot.INSTANCE = self
+
+    def collide(self, other):
+        if isinstance(other, Alien):
+            self.parent.update_score(other.score)
+            other.kill()
+            self.kill()
+
+    def on_exit(self):
+        super(PlayerShoot, self).on_exit()
+        PlayerShoot.INSTANCE = None
 
 
 if __name__ == '__main__':

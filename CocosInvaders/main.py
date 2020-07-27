@@ -24,9 +24,11 @@ class Actor(cocos.sprite.Sprite):
         self.cshape = cm.AARectShape(self.position, self.width / 2, self.height / 2)
 
     def update(self, elapsed):
+        """Template design pattern for the child classes to implement"""
         pass
 
     def collide(self, other):
+        """Template design pattern for the child classes to implement"""
         pass
 
 
@@ -60,15 +62,10 @@ class PlayerCannon(Actor):
 class GameLayer(cocos.layer.Layer):
     is_event_handler = True
 
-    def on_key_press(self, k, _):
-        PlayerCannon.KEYS_PRESSED[k] = 1
-
-    def on_key_release(self, k, _):
-        PlayerCannon.KEYS_PRESSED[k] = 0
-
-    def __init__(self):
+    def __init__(self, hud):
         super(GameLayer, self).__init__()
         width, height = cocos.director.director.get_window_size()
+        self.hud = hud
         self.width = width
         self.height = height
         self.lives = 3
@@ -85,12 +82,20 @@ class GameLayer(cocos.layer.Layer):
         # Defined in cocos.cocosnode.CocosNode
         self.schedule(self.update)
 
+    def on_key_press(self, k, _):
+        PlayerCannon.KEYS_PRESSED[k] = 1
+
+    def on_key_release(self, k, _):
+        PlayerCannon.KEYS_PRESSED[k] = 0
+
     def create_player(self):
         self.player = PlayerCannon(self.width / 2, 50)
         self.add(self.player)
+        self.hud.update_lives(self.lives)
 
     def update_score(self, score=0):
         self.score += score
+        self.hud.update_score(self.score)
 
     def create_alien_group(self, x, y):
         """(0,0) = bottom left"""
@@ -116,6 +121,11 @@ class GameLayer(cocos.layer.Layer):
         if self.collide(self.player):
             self.respawn_player()
 
+        no_more_aliens = all([len(column.aliens) == 0 for column in self.alien_group.columns])
+        if no_more_aliens:
+            self.unschedule(self.update)
+            self.hud.show_game_won()
+
         for column in self.alien_group.columns:
             shoot = column.shoot()
             if shoot is not None:
@@ -125,6 +135,8 @@ class GameLayer(cocos.layer.Layer):
             node.update(dt)
 
         self.alien_group.update(dt)
+        if random.random()<0.001:
+            self.add(MysteryShip(50, self.height-50))
 
     def collide(self, node: Actor):
         other: Actor
@@ -138,9 +150,10 @@ class GameLayer(cocos.layer.Layer):
 
     def respawn_player(self):
         """Unschedule update() when there are no more lives left to stop the main loop"""
-        self.lives-=1
-        if self.lives<0:
+        self.lives -= 1
+        if self.lives < 0:
             self.unschedule(self.update)
+            self.hud.show_game_over()
         else:
             self.create_player()
 
@@ -172,12 +185,23 @@ class Alien(Actor):
             self.alien_column.remove(self)
 
 
+class MysteryShip(Alien):
+    SCORES = [10, 50, 100, 200]
+
+    def __init__(self, x, y):
+        score = random.choice(MysteryShip.SCORES)
+        super(MysteryShip, self).__init__("img/alien4.png", x, y, score)
+        self.speed = eu.Vector2(150, 0)
+
+    def update(self, elapsed):
+        self.move(self.speed * elapsed)
+
+
 class AlienColumn(object):
     def __init__(self, x, y):
         alien_types = enumerate(["3", "3", "2", "2", "1"])
         self.aliens = [Alien.from_type(x, y + i * 60, alien, self)
                        for i, alien in alien_types]
-
 
     def should_turn(self, direction):
         if len(self.aliens) == 0:
@@ -261,8 +285,53 @@ class PlayerShoot(Shoot):
         PlayerShoot.INSTANCE = None
 
 
+class HUD(cocos.layer.Layer):
+    """
+    score-----------lives\n
+    |                |\n
+    |    game over   |\n
+    |                |\n
+    """
+
+    def __init__(self):
+        super(HUD, self).__init__()
+        width, height = cocos.director.director.get_window_size()
+        self.score_text = cocos.text.Label("", font_size=18)
+        self.score_text.position = (20, height - 40)
+        self.lives_text = cocos.text.Label("", font_size=18)
+        self.lives_text.position = (width - 100, height - 40)
+        self.add(self.score_text)
+        self.add(self.lives_text)
+
+    def update_score(self, score):
+        self.score_text.element.text = "Score %s" % score
+
+    def update_lives(self, lives):
+        self.lives_text.element.text = "Lives %s" % lives
+
+    def show_game_over(self):
+        self._show_center_text("Press F to pay respects")
+
+    def show_game_won(self):
+        self._show_center_text("You won!")
+
+    def _show_center_text(self, text):
+        width, height = cocos.director.director.get_window_size()
+        label = cocos.text.Label(text,
+                                 font_size=50,
+                                 anchor_x="center",
+                                 anchor_y="center")
+        label.position = (width / 2, height / 2)
+        self.add(label)
+
+
 if __name__ == '__main__':
     cocos.director.director.init(caption="Cocos Invaders", width=800, height=650)
-    game_layer = GameLayer()
-    main_scene = cocos.scene.Scene(game_layer)
+    main_scene = cocos.scene.Scene()
+    hud_layer = HUD()
+    game_layer = GameLayer(hud_layer)
+
+    main_scene.add(hud_layer, z=1)
+    main_scene.add(game_layer, z=0)
+
     cocos.director.director.run(main_scene)

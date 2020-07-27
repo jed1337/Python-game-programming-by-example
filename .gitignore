@@ -29,12 +29,12 @@
 # When using Gradle or Maven with auto-import, you should exclude module files,
 # since they will be recreated, and may cause churn.  Uncomment if using
 # auto-import.
-# .allah_idea/artifacts
-# .allah_idea/compiler.xml
-# .allah_idea/jarRepositories.xml
-# .allah_idea/modules.xml
-# .allah_idea/*.iml
-# .allah_idea/modules
+# .idea/artifacts
+# .idea/compiler.xml
+# .idea/jarRepositories.xml
+# .idea/modules.xml
+# .idea/*.iml
+# .idea/modules
 # *.iml
 # *.ipr
 

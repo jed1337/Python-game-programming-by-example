@@ -4,6 +4,7 @@ import cocos.collision_model as cm
 import random
 import cocos.euclid as eu
 
+from typing import List
 from collections import defaultdict
 from pyglet.window import key
 from pyglet.image import load, ImageGrid, Animation
@@ -24,10 +25,6 @@ class Actor(cocos.sprite.Sprite):
         self.cshape = cm.AARectShape(self.position, self.width / 2, self.height / 2)
 
     def update(self, elapsed):
-        """Template design pattern for the child classes to implement"""
-        pass
-
-    def collide(self, other):
         """Template design pattern for the child classes to implement"""
         pass
 
@@ -53,10 +50,6 @@ class PlayerCannon(Actor):
         # w <= self.x and self.x <= self.parent.width:
         if movement != 0 and w <= self.x <= self.parent.width:
             self.move(self.speed * movement * elapsed)
-
-    def collide(self, other: cocos.cocosnode.CocosNode):
-        other.kill()
-        self.kill()
 
 
 class GameLayer(cocos.layer.Layer):
@@ -100,8 +93,8 @@ class GameLayer(cocos.layer.Layer):
     def create_alien_group(self, x, y):
         """(0,0) = bottom left"""
         self.alien_group = AlienGroup(x, y)
-        for alien in self.alien_group:
-            self.add(alien)
+        for alien_column in self.alien_group:
+            self.add(alien_column)
 
     def update(self, dt):
         self.collman.clear()
@@ -112,14 +105,21 @@ class GameLayer(cocos.layer.Layer):
             if not self.collman.knows(node):
                 self.remove(node)
 
-        # Have the PlayerShoot collide with the aliens
-        # We don't do anything about the return value since
-        # PlayerShoot handles killing itself and the alien it hit
-        self.collide(PlayerShoot.INSTANCE)
+        for k, v in self.collide_with_group(PlayerShoot.INSTANCE, [column for column in self.alien_group]).items():
+            for alien in v:
+                self.update_score(alien.score)
+                alien.kill()
+            if len(v) > 0:
+                k.kill()
 
-        # If the player collides with Shoot or an Alien
-        if self.collide(self.player):
-            self.respawn_player()
+        for k, v in self.collide_with_group(self.player, self.get_by_child_types((Shoot, Alien))).items():
+            sprite: cocos.sprite.Sprite
+            for sprite in v:
+                sprite.kill()
+
+            if len(v) > 0:
+                k.kill()
+                self.respawn_player()
 
         no_more_aliens = all([len(column.aliens) == 0 for column in self.alien_group.columns])
         if no_more_aliens:
@@ -135,18 +135,27 @@ class GameLayer(cocos.layer.Layer):
             node.update(dt)
 
         self.alien_group.update(dt)
-        if random.random()<0.001:
-            self.add(MysteryShip(50, self.height-50))
+        if random.random() < 0.001:
+            self.add(MysteryShip(50, self.height - 50))
 
-    def collide(self, node: Actor):
-        other: Actor
+    def get_by_child_types(self, classes):
+        # child[1] :Actor
+        return [child[1] for child in self.children if isinstance(child[1], classes)]
 
-        # The player shoot instance can be None if there's no current shoot
-        if node is not None:
-            for other in self.collman.iter_colliding(node):
-                node.collide(other)
-                return True
-        return False
+    def collide_with_group(self, sprite, group_a: List[cocos.sprite.Sprite]):
+        collision_array = []
+        if sprite is not None:
+            collision_array = [a for a in group_a if self.collman.they_collide(sprite, a)]
+        return {sprite: collision_array}
+
+    def group_collide(self, group_a: List[cocos.sprite.Sprite], group_b: List[cocos.sprite.Sprite]):
+        collision_dict = {}
+        for a in list(filter(None, group_a)):
+            collision_dict[a] = []
+            for b in list(filter(None, group_b)):
+                if self.collman.they_collide(a, b):
+                    collision_dict[a].append(b)
+        return collision_dict
 
     def respawn_player(self):
         """Unschedule update() when there are no more lives left to stop the main loop"""
@@ -273,12 +282,6 @@ class PlayerShoot(Shoot):
         super(PlayerShoot, self).__init__(x, y, image="img/laser.png")
         self.speed *= -1
         PlayerShoot.INSTANCE = self
-
-    def collide(self, other):
-        if isinstance(other, Alien):
-            self.parent.update_score(other.score)
-            other.kill()
-            self.kill()
 
     def on_exit(self):
         super(PlayerShoot, self).on_exit()

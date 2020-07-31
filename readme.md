@@ -4,11 +4,13 @@ Code used in the book [Python Game Programming By Example](https://www.packtpub.
 ## Contents
 
 ### Hello Pong
+Breakout implemented with Tkinter natively available with Python
 <img src="https://raw.githubusercontent.com/jed1337/Python-game-programming-by-example/master/Screenshots/HelloPong.png">
 
-Breakout implemented with Tkinter natively available with Python
 
 ### Cocos Invaders
+Space invaders implemented with the cocos2d package
 <img src="https://raw.githubusercontent.com/jed1337/Python-game-programming-by-example/master/Screenshots/CocosInvaders.png">
 
-Space invaders implemented with the cocos2d package
+##### Changes from the book
+* Moved collision logic from Actor to GameLayer

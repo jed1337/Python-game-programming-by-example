@@ -18,7 +18,7 @@ class Actor(cocos.sprite.Sprite):
         # self.position is defined in cocos.sprite.Sprite with type (int, int)
         # assigning self.position type eu.Vector2(int,int) seems to assign the type (int,int)
         self.position = pos
-        self.cshape = cm.CircleShape(pos, self.width / 2)
+        self.cshape = cm.AARectShape(self.position, self.width / 2, self.height / 2)
 
     def move(self, offset):
         self.position += offset
@@ -66,6 +66,7 @@ class GameLayer(cocos.layer.Layer):
         self.update_score()
         self.create_player()
         self.create_alien_group(100, 300)
+        self.create_bunker_groups()
 
         # recommended cell size is the maximum object width *1.25
         cell = self.player.width * 1.25
@@ -96,6 +97,15 @@ class GameLayer(cocos.layer.Layer):
         for alien_column in self.alien_group:
             self.add(alien_column)
 
+    def create_bunker_groups(self):
+        for i in range(75, 775, 150):
+            self.create_bunker_group(i)
+
+    def create_bunker_group(self, initial_x):
+        for x in range(initial_x, initial_x + 50, 8):
+            for y in range(120, 160, 8):
+                self.add(Bunker(x, y))
+
     def update(self, dt):
         self.collman.clear()
 
@@ -112,7 +122,7 @@ class GameLayer(cocos.layer.Layer):
             if len(v) > 0:
                 k.kill()
 
-        for k, v in self.collide_with_group(self.player, self.get_by_child_types((Shoot, Alien))).items():
+        for k, v in self.collide_with_group(self.player, self.get_children_by_types((Shoot, Alien))).items():
             sprite: cocos.sprite.Sprite
             for sprite in v:
                 sprite.kill()
@@ -120,6 +130,15 @@ class GameLayer(cocos.layer.Layer):
             if len(v) > 0:
                 k.kill()
                 self.respawn_player()
+
+        for k, v in self.group_collide(
+                self.get_children_by_types(Shoot),
+                self.get_children_by_types(Bunker)
+        ).items():
+            for bunker in v:
+                bunker.kill()
+            if len(v) > 0:
+                k.kill()
 
         no_more_aliens = all([len(column.aliens) == 0 for column in self.alien_group.columns])
         if no_more_aliens:
@@ -138,7 +157,7 @@ class GameLayer(cocos.layer.Layer):
         if random.random() < 0.001:
             self.add(MysteryShip(50, self.height - 50))
 
-    def get_by_child_types(self, classes):
+    def get_children_by_types(self, classes):
         # child[1] :Actor
         return [child[1] for child in self.children if isinstance(child[1], classes)]
 
@@ -165,6 +184,11 @@ class GameLayer(cocos.layer.Layer):
             self.hud.show_game_over()
         else:
             self.create_player()
+
+
+class Bunker(Actor):
+    def __init__(self, x, y):
+        super(Bunker, self).__init__("img/bunkerPart.png", x, y)
 
 
 class Alien(Actor):
@@ -227,7 +251,7 @@ class AlienColumn(object):
 
     def shoot(self):
         # We set a low probability of shooting since random() is called multiple times per second
-        if random.random() < 0.001 and len(self.aliens) > 0:
+        if random.random() < 0.002 and len(self.aliens) > 0:
             bottom_most_alien_position = self.aliens[0].position
             return Shoot(bottom_most_alien_position[0], bottom_most_alien_position[1] - 50)
         return None

@@ -14,3 +14,4 @@ Space invaders implemented with the cocos2d package
 
 ##### Changes from the book
 * Moved collision logic from Actor to GameLayer
+* Added bunkers

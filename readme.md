@@ -9,9 +9,13 @@ Breakout implemented with Tkinter natively available with Python
 
 
 ### Cocos Invaders
-Space invaders implemented with the cocos2d package
+Space invaders implemented with the Cocos2d package
 <img src="https://raw.githubusercontent.com/jed1337/Python-game-programming-by-example/master/Screenshots/CocosInvaders.png">
 
 ##### Changes from the book
 * Moved collision logic from Actor to GameLayer
 * Added bunkers
+
+### Tower Defense
+A tower defense game implemented with the Cocos2d package, the map is created using Tiled
+<img src="https://raw.githubusercontent.com/jed1337/Python-game-programming-by-example/master/Screenshots/TowerDefense.png">

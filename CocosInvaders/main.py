@@ -115,7 +115,7 @@ class GameLayer(cocos.layer.Layer):
             if not self.collman.knows(node):
                 self.remove(node)
 
-        for k, v in self.collide_with_group(PlayerShoot.INSTANCE, [column for column in self.alien_group]).items():
+        for k, v in self.collide_with_group(PlayerShoot.INSTANCE, self.get_children_by_types(Alien)).items():
             for alien in v:
                 self.update_score(alien.score)
                 alien.kill()

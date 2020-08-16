@@ -1,13 +1,13 @@
-import cocos
-import cocos.layer
-import cocos.collision_model as cm
 import random
-import cocos.euclid as eu
-
-from typing import List
 from collections import defaultdict
-from pyglet.window import key
+from typing import List
+
+import cocos
+import cocos.collision_model as cm
+import cocos.euclid as eu
+import cocos.layer
 from pyglet.image import load, ImageGrid, Animation
+from pyglet.window import key
 
 
 class Actor(cocos.sprite.Sprite):
@@ -140,7 +140,7 @@ class GameLayer(cocos.layer.Layer):
             if len(v) > 0:
                 k.kill()
 
-        no_more_aliens = all([len(column.aliens) == 0 for column in self.alien_group.columns])
+        no_more_aliens = len(self.get_children_by_types(Alien)) == 0
         if no_more_aliens:
             self.unschedule(self.update)
             self.hud.show_game_won()

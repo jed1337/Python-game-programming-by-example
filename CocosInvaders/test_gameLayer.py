@@ -1,26 +1,17 @@
-import os
-from pathlib import Path
 from unittest import TestCase
 from unittest.mock import MagicMock
 
-import cocos
 import cocos.collision_model as cm
-import pyglet
 
 from main import Alien, Bunker, PlayerCannon, Shoot, PlayerShoot
 from main import GameLayer
+from test_utils import setup
 
 
 class TestGameLayer(TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cocos.director.director.init()
-        TestGameLayer.have_pyglet_point_to_CocosInvaders_folder()
-
-    @staticmethod
-    def have_pyglet_point_to_CocosInvaders_folder():
-        pyglet.resource.path = [str(Path(os.path.realpath(__file__)).parent)]
-        pyglet.resource.reindex()
+        setup()
 
     def setUp(self) -> None:
         self.game_layer = GameLayer(MagicMock())
